@@ -34,7 +34,7 @@ class ZeroBlog extends ZeroFrame
 
   initFollowButton: ->
     @follow = new Follow($(".feed-follow"))
-    @follow.addFeed("Posts", "
+    @follow.addFeed("博客", "
       SELECT
        post_id AS event_uri,
        'post' AS type,
@@ -46,7 +46,7 @@ class ZeroBlog extends ZeroFrame
 
     if Page.site_info.cert_user_id
       username = Page.site_info.cert_user_id.replace /@.*/, ""
-      @follow.addFeed("Username mentions", "
+      @follow.addFeed("提到某人", "
         SELECT
         'comment' AS type,
          date_added,
@@ -66,7 +66,7 @@ class ZeroBlog extends ZeroFrame
          comment.body LIKE '%@#{username}%'
       ", true)
 
-    @follow.addFeed("Comments", "
+    @follow.addFeed("回复", "
       SELECT
       'comment' AS type,
        date_added,
@@ -82,7 +82,7 @@ class ZeroBlog extends ZeroFrame
       (keyvalue.json_id = json_content.json_id AND key = 'cert_user_id')
       LEFT JOIN post ON (comment.post_id = post.post_id)")
 
-    @follow.addFeed("Changes", "
+    @follow.addFeed("最近更改", "
       SELECT
        'changes' AS type,
        date_modified AS date_added,
@@ -279,7 +279,7 @@ class ZeroBlog extends ZeroFrame
     tag =""
     #query untagged
     if tagType.match /^None/
-      tag="all untagged"
+      tag="尚未分类"
       queryString = """SELECT date_published,title,post_id FROM post
       WHERE post_id NOT IN (SELECT DISTINCT (post_id) FROM tag)
       ORDER BY date_published DESC"""
@@ -309,7 +309,7 @@ class ZeroBlog extends ZeroFrame
 
 
         @applyPostdata($(".post-full"),
-          title:"posts of tag:"+tag
+          title:"以下文章被分类在:"+tag
           post_id:-1
           votes:-1
           comments:-1
@@ -346,7 +346,7 @@ class ZeroBlog extends ZeroFrame
         tagged = res[2..]
 
         if tagged.length > 0
-          markdown += "tagged:\n\n"
+          markdown += "已分类:\n\n"
 
         for one in tagged
           escaped = encodeURIComponent(one.value)
@@ -356,12 +356,12 @@ class ZeroBlog extends ZeroFrame
         untagged=total_post - res[1].count
 
         if untagged != 0
-          markdown += "\n[untagged:#{untagged} post(s)]\
+          markdown += "\n[尚未分类:#{untagged} post(s)]\
             (?Toc=tagNone)"
 
 
         @applyPostdata($(".post-full"),
-          title:"index by tag"
+          title:"按标签索引"
           post_id:-1
           votes:-1
           comments:-1
@@ -412,7 +412,7 @@ class ZeroBlog extends ZeroFrame
             :"+post.title+"](?Post:#{post.post_id})\n"
 
         @applyPostdata($(".post-full"),
-          title:"index by date"
+          title:"按日期索引"
           post_id:-1
           votes:-1
           comments:-1
@@ -662,10 +662,10 @@ class ZeroBlog extends ZeroFrame
         .data("content", post.date_published)
 
     if post.date_modified
-      date_modified = "last modified: " + Time.since(post.date_modified)
+      date_modified = "最后修改: " + Time.since(post.date_modified)
       $(".details .modified", elem).html(date_modified)
     else
-      $(".details .modified", elem).html("last modified: " +
+      $(".details .modified", elem).html("最后修改: " +
         Time.since(post.date_published))
 
    
@@ -1028,9 +1028,9 @@ class ZeroBlog extends ZeroFrame
       tag = tag.split(" ")
     
     if tag.length is 0
-      return "tag:<a href='?Toc=tagNone'>not tagged</a>"
+      return "标签:<a href='?Toc=tagNone'>尚未分类</a>"
     
-    ret = "tag:"
+    ret = "标签:"
     
     for i in tag
       ret+=("<a href='?Toc=tag:"+encodeURIComponent(i)+"'>"+i+"</a> ")
