@@ -631,6 +631,86 @@ class ZeroBlog extends ZeroFrame
     return false # Ignore link default event
 
 
+  parseBodyInfo: (title,rawBodyString) ->
+    simple = rawBodyString.match(/([^\d]*)(\d+)~(\d+)(\.\w*)\b/)
+
+    if !simple
+      imageInfoJson = null
+
+      try
+        imageInfoJson = JSON.parse(post.body)
+      catch error
+        
+
+      if imageInfoJson is null
+        bodyInfo = {
+          hasNext: ()->return false
+          body:post.body
+        }
+      else
+        bodyInfo = {
+          currentIdx:0
+          hasNext:()->return this.currentIdx<imageInfoJson
+          next:()->return imageInfoJson.img[this.currentIdx++]
+          body:imageInfoJson.body
+        }
+
+      return bodyInfo
+    
+    parseNoZero = (str)->
+      if parseInt(str) is 0
+        return 0
+        #exclude leading zero to avoid different js parseInt result
+      return parseInt(str.match(/([^0]+)/)[1])
+
+    prefix=simple[1]
+    begin_number= parseNoZero(simple[2])
+
+    has_leading_zero = ((begin_number+"")!=simple[2])
+    generate_width = simple[2].length
+
+    end_number = parseNoZero(simple[3])
+
+    format = simple[4]
+    return {
+      current:begin_number-1
+
+      hasNext:()->return this.current<(end_number)
+      next:()->
+        str = (++this.current) + ""
+        if !has_leading_zero
+          return title+"/"+prefix+str+format
+
+        str="0"+str for [0...generate_width-str.length]
+        return title+"/"+prefix+str+format
+      body:rawBodyString.replace(simple[0],"")
+    }
+
+
+
+  bodyInfoToHtml: (bodyInfo,full) ->
+    if !full
+      #preview first image only
+      body = Text.renderMarked(bodyInfo.body.replace(
+        /^([\s\S]*?)\n---\n[\s\S]*$/, "$1"))
+      if bodyInfo.hasNext()
+        body += "<img src=\"data/pic/#{bodyInfo.next()}\"/>"
+
+    else
+      body = Text.renderMarked(bodyInfo.body)
+      has_image = bodyInfo.hasNext()
+      if has_image
+        body+="<div class=\"fotorama\" data-nav=\"thumbs\">"
+      while bodyInfo.hasNext()
+        body+="<img src=\"data/pic/#{bodyInfo.next()}\">"
+      if has_image
+        body+="</div><script>$(function () {$('.fotorama').fotorama();});</script>"
+    return body
+
+  rawBodyToHtml:(title,rawBodyString,full)->
+    bodyInfo = @parseBodyInfo(title,rawBodyString)
+    return @bodyInfoToHtml(bodyInfo,full)
+
   # Apply from data to post html element
   applyPostdata: (elem, post, full=false) ->
 
@@ -711,13 +791,18 @@ class ZeroBlog extends ZeroFrame
       $(".like", elem).addClass("active")
 
 
-    if full
-      body = post.body
-    else # On main page only show post until the first --- hr separator
-      body = post.body.replace(/^([\s\S]*?)\n---\n[\s\S]*$/, "$1")
+    #this is toc page
+    if post.post_id<0
+      if $(".body", elem).data("content") != post.body
+        $(".body", elem).html(Text.renderMarked(post.body)).data("content", post.body)
+      return
 
-    if $(".body", elem).data("content") != post.body
-      $(".body", elem).html(Text.renderMarked(body)).data("content", post.body)
+      
+    if $(".body", elem).data("content") == post.body
+      return
+
+    $(".body", elem).html(@rawBodyToHtml(post.title,post.body,full))
+      .data("content", post.body)
 
 
   # Wrapper websocket connection ready
@@ -834,6 +919,8 @@ class ZeroBlog extends ZeroFrame
               cb(content)
             else if elem.data("editable-mode") == "timestamp" # Format timestamp
               cb(Time.since(content))
+            else if elem.data("editable") == "body"
+              cb(self.rawBodyToHtml(post.title,content,true))
             else
               cb(Text.renderMarked(content))
           else # Error
