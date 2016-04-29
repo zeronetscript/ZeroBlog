@@ -384,7 +384,7 @@ class ZeroBlog extends ZeroFrame
       parse_res = (res) =>
 
         
-        #id is needed when applyPostdata
+
 
         if res.length is 0
 
@@ -631,8 +631,8 @@ class ZeroBlog extends ZeroFrame
     return false # Ignore link default event
 
 
-  parseBodyInfo: (title,rawBodyString) ->
-    simple = rawBodyString.match(/([^\d]*)(\d+)~(\d+)(\.\w*)\b/)
+  parseBodyInfo: (rawBodyString) ->
+    simple = rawBodyString.match(/([a-zA-Z0-9]*\/[^\d]*)(\d+)~(\d+)(\.\w*)\b/)
 
     if !simple
       imageInfoJson = null
@@ -645,7 +645,7 @@ class ZeroBlog extends ZeroFrame
       if imageInfoJson is null
         bodyInfo = {
           hasNext: ()->return false
-          body:post.body
+          body:rawBodyString
         }
       else
         bodyInfo = {
@@ -660,8 +660,8 @@ class ZeroBlog extends ZeroFrame
     parseNoZero = (str)->
       if parseInt(str) is 0
         return 0
-        #exclude leading zero to avoid different js parseInt result
-      return parseInt(str.match(/([^0]+)/)[1])
+      #exclude leading zero to avoid different js parseInt result
+      return parseInt(str.match(/([^0]+\d*)/)[1])
 
     prefix=simple[1]
     begin_number= parseNoZero(simple[2])
@@ -679,37 +679,37 @@ class ZeroBlog extends ZeroFrame
       next:()->
         str = (++this.current) + ""
         if !has_leading_zero
-          return title+"/"+prefix+str+format
+          return prefix+str+format
 
         str="0"+str for [0...generate_width-str.length]
-        return title+"/"+prefix+str+format
+        return prefix+str+format
       body:rawBodyString.replace(simple[0],"")
     }
 
 
 
-  bodyInfoToHtml: (bodyInfo,full) ->
+  bodyInfoToHtml: (post_id,bodyInfo,full) ->
     if !full
       #preview first image only
       body = Text.renderMarked(bodyInfo.body.replace(
         /^([\s\S]*?)\n---\n[\s\S]*$/, "$1"))
       if bodyInfo.hasNext()
-        body += "<img src=\"data/pic/#{bodyInfo.next()}\"/>"
+        body += "<a href=\"?Post:#{post_id}\"><img src=\"data/pic/#{bodyInfo.next()}\"/></a>"
 
     else
       body = Text.renderMarked(bodyInfo.body)
       has_image = bodyInfo.hasNext()
       if has_image
-        body+="<div class=\"fotorama\" data-nav=\"thumbs\">"
+        body+="<div class=\"fotorama\" data-nav=\"thumbs\" data-allowfullscreen=\"native\">"
       while bodyInfo.hasNext()
         body+="<img src=\"data/pic/#{bodyInfo.next()}\">"
       if has_image
         body+="</div><script>$(function () {$('.fotorama').fotorama();});</script>"
     return body
 
-  rawBodyToHtml:(title,rawBodyString,full)->
-    bodyInfo = @parseBodyInfo(title,rawBodyString)
-    return @bodyInfoToHtml(bodyInfo,full)
+  rawBodyToHtml:(post_id,rawBodyString,full)->
+    bodyInfo = @parseBodyInfo(rawBodyString)
+    return @bodyInfoToHtml(post_id,bodyInfo,full)
 
   # Apply from data to post html element
   applyPostdata: (elem, post, full=false) ->
@@ -801,7 +801,7 @@ class ZeroBlog extends ZeroFrame
     if $(".body", elem).data("content") == post.body
       return
 
-    $(".body", elem).html(@rawBodyToHtml(post.title,post.body,full))
+    $(".body", elem).html(@rawBodyToHtml(post.post_id,post.body,full))
       .data("content", post.body)
 
 
@@ -920,7 +920,7 @@ class ZeroBlog extends ZeroFrame
             else if elem.data("editable-mode") == "timestamp" # Format timestamp
               cb(Time.since(content))
             else if elem.data("editable") == "body"
-              cb(self.rawBodyToHtml(post.title,content,true))
+              cb(self.rawBodyToHtml(post.post_id,content,true))
             else
               cb(Text.renderMarked(content))
           else # Error
