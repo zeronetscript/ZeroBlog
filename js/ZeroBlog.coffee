@@ -81,6 +81,15 @@ class ZeroBlog extends ZeroFrame
       LEFT JOIN keyvalue ON
       (keyvalue.json_id = json_content.json_id AND key = 'cert_user_id')
       LEFT JOIN post ON (comment.post_id = post.post_id)")
+
+    @follow.addFeed("Changes", "
+      SELECT
+       'changes' AS type,
+       date_modified AS date_added,
+       title AS title,
+       body AS body,
+       '?Post:' || post_id AS url
+      FROM post", true)
     @follow.init()
 
 
@@ -473,7 +482,9 @@ class ZeroBlog extends ZeroFrame
     query = """
       SELECT COUNT(*) as post_id,
         NULL as title,NULL as body,NULL as date_published,
-        NULL as json_id, NULL as comments,NULL as votes
+        NULL as date_modified,NULL as json_id, NULL as comments,
+        NULL as votes
+        
       FROM post
       UNION ALL
       SELECT * FROM (
@@ -650,6 +661,14 @@ class ZeroBlog extends ZeroFrame
     $(".details .published", elem).html(date_published)
         .data("content", post.date_published)
 
+    if post.date_modified
+      date_modified = "last modified: " + Time.since(post.date_modified)
+      $(".details .modified", elem).html(date_modified)
+    else
+      $(".details .modified", elem).html("last modified: " +
+        Time.since(post.date_published))
+
+   
 
     $(".details .tag",elem).html(@tagToHtml(tag))
 
@@ -771,6 +790,7 @@ class ZeroBlog extends ZeroFrame
         #so must exclude tag property changes.
         if changeKey != "tag"
           post = (post for post in data.post when post.post_id == id)[0]
+          post.date_modified= new Date().getTime()/1000
          
           if elem.data("editable-mode") == "timestamp" # Time parse to timestamp
             content = Time.timestamp(content)
